@@ -196,13 +196,122 @@ After cloning the digitizer repository, replace the following files with the mod
 
 Modified files:
 
+## Modify `ecg_digitiser/run_digitizer.py`
+
+```text
+ecg_digitiser/run_digitizer.py
 ```
-FILE_1
-FILE_2
-FILE_3
-FILE_4
-FILE_5
+
+```python
+import os
+import sys
+import glob
+import yaml
+import numpy as np
+import pandas as pd
+import torch
+from torchvision.io import read_image
+
+_this_dir = os.path.dirname(__file__)
+if _this_dir not in sys.path:
+    sys.path.insert(0, _this_dir)
+
+try:
+    from src.model.inference_wrapper import InferenceWrapper
+except Exception as e:
+    raise RuntimeError("Cannot import InferenceWrapper.") from e
+
+def _find_config_file():
+    cfg_dir = os.path.join(os.path.dirname(__file__), "src", "config")
+    cand = []
+    for ext in ("*.yml", "*.yaml"):
+        cand.extend(sorted(glob.glob(os.path.join(cfg_dir, ext))))
+    if not cand:
+        raise RuntimeError(f"No yaml config files found")
+    for path in cand:
+        if any(x in os.path.basename(path).lower() for x in ("inference", "infer", "deploy")):
+            return path
+    return cand[0]
+
+def _load_cfgnode_from_yaml(path):
+    from yacs.config import CfgNode as CN
+    return CN(yaml.safe_load(open(path, "r", encoding="utf-8")))
+
+def load_png_file(path):
+    img = read_image(path).float() / 255.0
+    if img.shape[0] > 3: img = img[:3, :, :]
+    return img.unsqueeze(0)
+
+def digitize_image_from_path(seg_weights_path, layout_weights_path, image_path,
+                             resample_size=2000, target_num_samples=5000, device=None,
+                             layout_substring=None):
+    if device is None: device = torch.device("cpu")
+    elif isinstance(device, str): device = torch.device(device)
+
+    cfg_path = _find_config_file()
+    cfg = _load_cfgnode_from_yaml(cfg_path)
+    
+    from yacs.config import CfgNode as CN
+    if not hasattr(cfg, "MODEL"): cfg.MODEL = CN()
+    if not hasattr(cfg.MODEL.KWARGS, "config"): cfg.MODEL.KWARGS.config = CN()
+    nested_cfg = cfg.MODEL.KWARGS.config
+
+    for sub in ("SEGMENTATION_MODEL", "LAYOUT_IDENTIFIER", "SIGNAL_EXTRACTOR", 
+                "CROPPER", "PIXEL_SIZE_FINDER", "DEWARPER", "PERSPECTIVE_DETECTOR"):
+        if not hasattr(nested_cfg, sub): setattr(nested_cfg, sub, CN())
+
+    nested_cfg.SEGMENTATION_MODEL.weight_path = seg_weights_path
+    nested_cfg.LAYOUT_IDENTIFIER.unet_weight_path = layout_weights_path
+
+    base = os.path.dirname(__file__)
+    def _resolve_path(p):
+        if not isinstance(p, str): return p
+        if os.path.exists(p): return os.path.abspath(p)
+        cand = os.path.join(base, "src", "config", os.path.basename(p))
+        if os.path.exists(cand): return cand
+        return p
+
+    try:
+        if hasattr(nested_cfg, "LAYOUT_IDENTIFIER"):
+            li = nested_cfg.LAYOUT_IDENTIFIER
+            for attr in ("config_path", "unet_config_path", "unet_weight_path"):
+                if hasattr(li, attr): setattr(li, attr, _resolve_path(getattr(li, attr)))
+        if hasattr(nested_cfg, "SEGMENTATION_MODEL"):
+            nested_cfg.SEGMENTATION_MODEL.weight_path = _resolve_path(nested_cfg.SEGMENTATION_MODEL.weight_path)
+    except:
+        pass
+
+    wrapper = InferenceWrapper(nested_cfg, device=device, resample_size=resample_size, enable_timing=False)
+    wrapper = wrapper.to(device).eval()
+
+    img = load_png_file(image_path)
+    
+    with torch.no_grad():
+        out = wrapper(img.to(device), layout_should_include_substring=layout_substring)
+
+    signal_section = out.get("signal", {})
+    sig = None
+    for k in ("canonical_lines", "lines", "raw_lines"):
+        if signal_section.get(k) is not None:
+            sig = signal_section.get(k)
+            break
+
+    if sig is None: raise RuntimeError("InferenceWrapper returned no signal lines.")
+    if torch.is_tensor(sig): sig = sig.cpu().numpy()
+
+    if sig.shape[0] > sig.shape[1]: 
+        sig = sig.T
+
+    sig = sig * 0.001
+    for i in range(sig.shape[0]):
+        series = pd.Series(sig[i])
+        series = series.interpolate(method='linear', limit_direction='both')
+        series = series.fillna(0)
+        sig[i] = series.to_numpy()
+
+    return sig.astype(np.float32)
 ```
+
 
 Steps:
 
