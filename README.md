@@ -62,19 +62,115 @@ ptbxl/
 
 ---
 
-# Setup Environment
+# Environment Setup
 
-Create a Python environment and install dependencies.
+It is recommended to run this project inside a **Python virtual environment**.
 
-```
+## 1. Create Virtual Environment
+
+```bash
 python -m venv venv
-source venv/bin/activate      # Linux / Mac
-venv\Scripts\activate         # Windows
+```
 
+## 2. Activate Virtual Environment
+
+### Windows
+
+```bash
+venv\Scripts\activate
+```
+
+### Linux / Mac
+
+```bash
+source venv/bin/activate
+```
+
+---
+
+# Install Required Python Libraries
+
+Install all required dependencies using:
+
+```bash
 pip install -r requirements.txt
 ```
 
 ---
+
+# Generate `requirements.txt`
+
+If you want to regenerate the dependency file after installing packages:
+
+```bash
+pip freeze > requirements.txt
+```
+
+This will save all installed Python libraries required to reproduce the environment.
+
+---
+
+# Verify Installation
+
+Check installed packages:
+
+```bash
+pip list
+```
+
+---
+
+# Important Notes
+
+* The `venv/` folder should **NOT be uploaded to GitHub**.
+* Add the following entry to `.gitignore`:
+
+```
+venv/
+__pycache__/
+*.pyc
+```
+
+---
+
+# Clone ECG Digitizer Dependency
+
+This project uses the **Open-ECG-Digitizer** library.
+
+Clone it inside the project directory:
+
+```bash
+git clone https://github.com/Ahus-AIM/Open-ECG-Digitizer.git ecg_digitiser
+```
+
+---
+
+# Apply Required Modifications
+
+After cloning the repository, several files must be modified to integrate with this project.
+
+The modified files and instructions are provided below.
+
+(You will add the file list here.)
+
+Example structure:
+
+```
+ecg_digitiser/
+   file1.py
+   file2.py
+   module/
+      file3.py
+```
+
+Replace the corresponding files with the modified versions in this repository.
+
+---
+
+# Next Steps
+
+After setting up the environment and cloning the digitizer repository, you can proceed to run the ECG digitization and prediction pipeline.
+
 
 # Clone ECG Digitizer
 
