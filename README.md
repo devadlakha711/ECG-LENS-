@@ -1201,7 +1201,7 @@ class InferenceWrapper(Module):
 ```
 ## 4. Modify `ecg_digitiser\src\config\inference_wrapper.yml`
 
-```python
+```yaml
 MODEL:
   class_path: 'src.model.inference_wrapper.InferenceWrapper'
   KWARGS:
@@ -1268,7 +1268,7 @@ DATA:
 ```
 ## 5. Modify `ecg_digitiser\src\config\inference_wrapper_george-moody-2024.yml`
 
-```python
+```yaml
 MODEL:
   class_path: 'src.model.inference_wrapper.InferenceWrapper'
   KWARGS:
@@ -1339,7 +1339,7 @@ DATA:
 
 ## 6. Modify `ecg_digitiser\src\config\inference_wrapper_ahus_testset.yml`
 
-```python
+```yaml
 MODEL:
   class_path: 'src.model.inference_wrapper.InferenceWrapper'
   KWARGS:
